@@ -16,13 +16,15 @@ function esc(s) {
 function normalize(ranks, names) {
     return Object.entries(ranks || {}).map(([id, v]) => ({
         id: String(id),
-        name: (names || {})[String(id)] ||
+        name: String(
+            (names || {})[String(id)] ||
             (typeof v === "string" ? id :
-                (v?.name || v?.username || v?.player_name || id)),
+                (v?.name || v?.username || v?.player_name || id))
+        ),
         rank: String(
             typeof v === "string" ? v :
             (v?.rank || v?.tier || v?.rank_name || "UNRANKED")
-        )
+        ).toUpperCase()
     }));
 }
 
@@ -61,9 +63,13 @@ function getMateName(id, teams, names) {
 }
 
 function pairKey(p) {
-    if (!p.teammateId) return "solo:" + p.id;
+    if (!p.teammateId) {
+        return "solo:" + p.id;
+    }
 
-    return [p.id, p.teammateId].sort().join("|");
+    return [String(p.id), String(p.teammateId)]
+        .sort()
+        .join("|");
 }
 
 function render() {
@@ -75,7 +81,7 @@ function render() {
     ];
 
     const list = rows.filter(p =>
-        (selected === "ALL" || p.rank.toUpperCase() === selected) &&
+        (selected === "ALL" || p.rank === selected) &&
         (
             p.name.toLowerCase().includes(search) ||
             p.teammate.toLowerCase().includes(search)
@@ -86,20 +92,17 @@ function render() {
         a.name.localeCompare(b.name)
     );
 
-    const playerIds = new Set(rows.map(p => p.id));
     const seen = new Set();
     const displayRows = [];
 
     for (const p of list) {
-    const key = p.teammateId
-        ? [String(p.id), String(p.teammateId)].sort().join("|")
-        : "solo:" + p.id;
+        const key = pairKey(p);
 
-    if (seen.has(key)) continue;
+        if (seen.has(key)) continue;
 
-    seen.add(key);
-    pairs.push(p);
-}
+        seen.add(key);
+        displayRows.push(p);
+    }
 
     $("players").innerHTML = displayRows.length
         ? displayRows.map(p => `
@@ -137,25 +140,19 @@ function render() {
 
 async function load() {
     try {
-        const response = await fetch("/api/ranks", { cache: "no-store" });
-        if (!response.ok) throw Error("HTTP " + response.status);
+        const response = await fetch("/api/ranks", {
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw Error("HTTP " + response.status);
+        }
 
         const data = await response.json();
         const names = data.player_names || {};
         const teams = data.teams || {};
 
         rows = normalize(data.ranks, names);
-
-        
-rows.forEach(p => {
-    p.teammateId = getMateId(p.id, teams);
-
-    p.teammate = p.teammateId
-        ? (names[p.teammateId] ||
-           rows.find(other => other.id === p.teammateId)?.name ||
-           p.teammateId)
-        : "";
-});
 
         rows.forEach(p => {
             p.teammateId = getMateId(p.id, teams);
@@ -165,12 +162,17 @@ rows.forEach(p => {
         $("playerCount").textContent = rows.length;
 
         const teamKeys = new Set();
+
         rows.forEach(p => {
-            if (p.teammateId) teamKeys.add(pairKey(p));
+            if (p.teammateId) {
+                teamKeys.add(pairKey(p));
+            }
         });
+
         $("teamCount").textContent = teamKeys.size;
 
         const date = new Date(data.updated_at);
+
         $("lastUpdated").textContent = isNaN(date.getTime())
             ? "—"
             : date.toLocaleTimeString("ru-RU", {
@@ -181,8 +183,10 @@ rows.forEach(p => {
         render();
     } catch (error) {
         console.error("Ошибка загрузки рейтинга:", error);
+
         $("players").innerHTML =
             '<tr><td colspan="4" class="empty">Не удалось загрузить данные. Попробуйте позже.</td></tr>';
+
         $("lastUpdated").textContent = "Ошибка";
     }
 }
