@@ -86,15 +86,20 @@ function render() {
         a.name.localeCompare(b.name)
     );
 
+    const playerIds = new Set(rows.map(p => p.id));
     const seen = new Set();
     const displayRows = [];
 
     for (const p of list) {
-        const key = pairKey(p);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        displayRows.push(p);
-    }
+    const key = p.teammateId
+        ? [String(p.id), String(p.teammateId)].sort().join("|")
+        : "solo:" + p.id;
+
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    pairs.push(p);
+}
 
     $("players").innerHTML = displayRows.length
         ? displayRows.map(p => `
@@ -140,6 +145,17 @@ async function load() {
         const teams = data.teams || {};
 
         rows = normalize(data.ranks, names);
+
+        
+rows.forEach(p => {
+    p.teammateId = getMateId(p.id, teams);
+
+    p.teammate = p.teammateId
+        ? (names[p.teammateId] ||
+           rows.find(other => other.id === p.teammateId)?.name ||
+           p.teammateId)
+        : "";
+});
 
         rows.forEach(p => {
             p.teammateId = getMateId(p.id, teams);
