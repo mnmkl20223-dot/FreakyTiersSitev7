@@ -23,7 +23,20 @@ function normalize(ranks, names) {
     }));
 }
 
+function getMateId(id, teams) {
+    const v = (teams || {})[String(id)];
 
+    if (typeof v === "string" || typeof v === "number") {
+        return String(v);
+    }
+
+    if (v && typeof v === "object" &&
+        v.teammate !== undefined && v.teammate !== null) {
+        return String(v.teammate);
+    }
+
+    return "";
+}
 
 function getMateName(id, teams, names) {
     const mateId = getMateId(id, teams);
